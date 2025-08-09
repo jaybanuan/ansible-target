@@ -1,0 +1,13 @@
+services:
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: server
+#    privileged: true
+    restart: unless-stopped
+
+  terminal:
+    build:
+      context: .
+      dockerfile: Dockerfile.terminal

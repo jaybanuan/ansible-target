@@ -1,0 +1,8 @@
+- hosts: servers
+#  become: yes
+  tasks:
+    - name: Create file
+      ansible.builtin.copy:
+        dest: /home/testuser/greeting.txt
+        content: "hello, world!"
+        mode: '0644'

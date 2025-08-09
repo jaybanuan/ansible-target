@@ -1,0 +1,64 @@
+FROM redhat/ubi9
+
+
+RUN <<DOCKERFILE_HERE_DOC
+#!/bin/bash -ex
+
+# パラメータ (将来的には実行時の環境変数で渡す)
+USER_ID=1000
+USER_NAME=testuser
+USER_PASSWORD=testuser
+GROUP_ID=1000
+GROUP_NAME=testuser
+PRIVATE_KEY="-----BEGIN OPENSSH PRIVATE KEY-----
+b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAaAAAABNlY2RzYS
+1zaGEyLW5pc3RwMjU2AAAACG5pc3RwMjU2AAAAQQQUwJDCkCDeWQ6Ot4nH0GnzvzELA3Fm
+4l9gKUtIhBYlcyYHr+RlIwFXt62Shreg0NEUSRU67ehLWwI8lakvxit6AAAAqAhbccMIW3
+HDAAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBBTAkMKQIN5ZDo63
+icfQafO/MQsDcWbiX2ApS0iEFiVzJgev5GUjAVe3rZKGt6DQ0RRJFTrt6EtbAjyVqS/GK3
+oAAAAhAOTlmY3MX7ksMuHSVKJkUrztloZZ7db4e340tpoiYoaeAAAAD2pheWJhbnVhbkBk
+ZXZwYw==
+-----END OPENSSH PRIVATE KEY-----"
+
+# 各種パッケージをインストール
+dnf install -y sudo less openssh-clients python3.12 python3.12-pip
+dnf clean all
+
+# ユーザの追加
+groupadd -g ${GROUP_ID} ${GROUP_NAME}
+useradd -m -u ${USER_ID} -g ${GROUP_NAME} ${USER_NAME}
+printf "${USER_NAME}:${USER_PASSWORD}" | chpasswd
+
+# ユーザの設定 (sshの秘密鍵の登録)
+mkdir -p /home/${USER_NAME}/.ssh/
+echo "${PRIVATE_KEY}" >> /home/${USER_NAME}/.ssh/id_rsa
+
+# ユーザの設定 (ディレクトリのパーミッションの調整)
+chown -R ${USER_NAME}:${GROUP_NAME} /home/${USER_NAME}/ 
+chmod 700 /home/${USER_NAME}/.ssh
+chmod 600 /home/${USER_NAME}/.ssh/id_rsa
+
+# sudoersの設定
+echo "${USER_NAME} ALL=(ALL:ALL) NOPASSWD:ALL" > "/tmp/${USER_NAME}"
+visudo --check --file="/tmp/${USER_NAME}"
+install -o root -g root -m 440 "/tmp/${USER_NAME}" /etc/sudoers.d/
+
+DOCKERFILE_HERE_DOC
+
+
+USER testuser
+
+
+RUN <<DOCKERFILE_HERE_DOC
+#!/bin/bash -ex
+python3.12 -m pip install --user ansible
+
+echo "$(which python3.12)" > /home/testuser/python.txt
+
+DOCKERFILE_HERE_DOC
+
+
+COPY --chown=testuser:testuser ansible-files/ /home/testuser
+
+
+CMD [ "python3", "-m", "http.server" ]
